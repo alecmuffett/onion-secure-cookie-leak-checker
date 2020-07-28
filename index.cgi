@@ -38,7 +38,7 @@ def kvprint(k, v, tag='p'):
 # env
 env_cookie = getenv('HTTP_COOKIE')
 env_eotk = getenv('HTTP_X_FROM_ONION')
-env_https = getenv('HTTPS')
+env_https = getenv('HTTPS') == 'on'
 env_port = getenv('SERVER_PORT')
 env_scheme = getenv('REQUEST_SCHEME')
 env_ua = getenv('HTTP_USER_AGENT')
@@ -50,13 +50,18 @@ cookie_name = 'ONION_COOKIE_LEAKTEST'
 max_age = 600
 name_dns = 'dropsafe.crypticide.com'
 name_onion = 'dropsafe.dropsafezeahmyho.onion'
-nonce = str(uuid.uuid4())
 uri_path = '/leaktest/'
+
+# cookie setting
+setval = '{0}:{1}'.format(
+    'https' if env_https else 'http',
+    str(uuid.uuid4())
+)
 
 # outgoing cookies + send headers
 ocookies = cookies.BaseCookie()
 crumbs = cookies.Morsel()
-crumbs.set(cookie_name, nonce, nonce)
+crumbs.set(cookie_name, setval, setval)
 crumbs['httponly'] = True
 crumbs['max-age'] = max_age
 crumbs['secure'] = True
@@ -124,43 +129,51 @@ ctag('ul')
 xprint('analysis', tag='h2')
 otag('ul')
 
-if env_https == 'on':
-    xprint('we are using https', tag='li')
+if env_https:
+    xprint('we are using HTTPS', tag='li')
 else:
-    xprint('we are not using https', tag='li')
+    xprint('we are NOT using HTTPS', tag='li')
 
 if env_eotk:
     xprint('we are using onion networking', tag='li')
 else:
-    xprint('we are not using onion networking', tag='li')
+    xprint('we are NOT using onion networking', tag='li')
 
 if expected:
-    xprint('we expected a cookie', tag='li')
+    xprint('we expected a secure cookie', tag='li')
 else:
-    xprint('we did not expect a cookie', tag='li')
+    xprint('we did not expect a secure cookie', tag='li')
 
 if observed_set:
-    xprint('we received a cookie', tag='li')
+    xprint('we received a secure cookie', tag='li')
 else:
-    xprint('we did not receive a cookie', tag='li')
+    xprint('we did not receive a secure cookie', tag='li')
 
-if expected and env_https == 'on' and not observed_set:
-    xprint('we expected a cookie and are on https but did not receive one (stale request?)', tag='li')
+if expected and env_https and (not observed_set):
+    xprint('we expected a secure cookie and are on HTTPS but did not receive one (stale request?)', tag='li')
 
-if expected and env_https != 'on' and not observed_set:
-    xprint('we expected a cookie and are not on https and did not receive one (good)', tag='li')
+if expected and (not env_https) and (not observed_set):
+    xprint('we expected a secure cookie and are not on HTTPS and did not receive one (good)', tag='li')
 
 if observed_set and expected and expected != observed_value:
-    xprint('the cookie we received is not the expected value (stale request, or maybe upgraded from HTTP to HTTPS?)', tag='li')
+    xprint('the secure cookie we received is not the expected value (stale request, or you upgraded from HTTP to HTTPS and got an old HTTPS value)', tag='li')
 
 if observed_set and expected and expected == observed_value:
-    xprint('the cookie received is the expected value (good)', tag='li')
+    xprint('the secure cookie received is the expected value (good)', tag='li')
 
-if observed_set and env_https == 'on':
-    xprint('the cookie was properly received over https (good)', tag='li')
+if observed_set and env_https:
+    xprint('the secure cookie was properly received over HTTPS (good)', tag='li')
+    if observed_value.startswith('https:'):
+        xprint('the secure cookie was issued over HTTPS and received over HTTPS (good)', tag='li')
+    if observed_value.startswith('http:'):
+        xprint('the secure cookie was issued over HTTP and received over HTTPS (bad, potential upgrade attack)', tag='li')
 
-if observed_set and env_https != 'on':
-    xprint('the cookie was improperly received over http (bad)', tag='li')
+if observed_set and (not env_https):
+    xprint('the secure cookie was received over HTTP (bad, depending on backend infrastructure)', tag='li')
+    if observed_value.startswith('https:'):
+        xprint('the secure cookie was issued over HTTPS but received over HTTP (bad, downgrade attack / data leak)', tag='li')
+    if observed_value.startswith('http:'):
+        xprint('the secure cookie was issued over HTTP and received over HTTP (neutral, but risky)', tag='li')
 
 ctag('ul')
 
@@ -169,7 +182,7 @@ def link(scheme,
          desc,
          tag='li',
          path=uri_path,
-         param='?{0}={1}'.format(cookie_name, nonce)):
+         param='?{0}={1}'.format(cookie_name, setval)):
     return '<{tag}><a href="{scheme}://{server}{path}{param}">{desc}</a></{tag}>'.format(
         scheme=scheme,
         server=server,
@@ -182,8 +195,8 @@ def link(scheme,
 xprint('potential test actions', tag='h2')
 where = name_onion if env_eotk else name_dns
 otag('ul')
-print(link('https', where, 'test what happens when you click from here to the HTTPS site'))
 print(link('http', where, 'test what happens when you click from here to the HTTP site'))
+print(link('https', where, 'test what happens when you click from here to the HTTPS site'))
 ctag('ul')
 
 xprint('absolute navigation', tag='h2')
