@@ -199,12 +199,14 @@ print(link('http', where, 'test what happens when you click from here to the HTT
 print(link('https', where, 'test what happens when you click from here to the HTTPS site'))
 ctag('ul')
 
+repo = 'https://github.com/alecmuffett/onion-secure-cookie-leak-checker'
 xprint('absolute navigation', tag='h2')
 otag('ul')
 print(link('https', name_onion, 'go to the https onion site', param=''))
 print(link('http', name_onion, 'go to the http onion site', param=''))
 print(link('https', name_dns, 'go to the https dns site', param=''))
 print(link('http', name_dns, 'go to the http dns site', param=''))
+print('<li><a href="{}">go to the github repo</a></li>'.format(repo))
 ctag('ul')
 
 ##################################################################
